@@ -192,11 +192,10 @@ You said you don't want to freely share data with OpenAI — here are approaches
 
 ---
 
-## 10. Developer workflow & repo structure (suggested)
+## 10. Developer workflow & repo structure (current)
 
 ```
-
-  /backend
+  /backend          - FastAPI backend application
     app/
       main.py
       api/
@@ -204,13 +203,16 @@ You said you don't want to freely share data with OpenAI — here are approaches
       workers/
       models/
       db/
-  /frontend
-    nextjs-app/
-  /infra
-    docker-compose.yml
-    k8s/ (optional)
-  README.md
-  LICENSE
+  /src              - Next.js frontend application
+  /public           - Static frontend assets
+  /node_modules     - Frontend dependencies
+  package.json      - Frontend package configuration
+  next.config.ts    - Next.js configuration
+  tsconfig.json     - TypeScript configuration
+  tailwind.config.* - Tailwind CSS configuration
+  .gitignore        - Git ignore rules (frontend + backend)
+  README.md         - Project documentation
+  product_requirements.md - This specification document
 ```
 
 Use Docker for local reproducibility. Provide a `dev` script to start backend, frontend, and a Redis worker.
