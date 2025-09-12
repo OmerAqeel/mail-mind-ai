@@ -236,3 +236,76 @@ def parse_gmail_message(message):
         'body_plain': body_plain,
         'body_html': body_html
     }
+
+# Test endpoint to create emails directly (for development/testing)
+from pydantic import BaseModel
+
+class CreateEmailRequest(BaseModel):
+    gmail_id: str
+    thread_id: str
+    subject: str
+    sender_email: str
+    sender_name: str
+    recipient_email: str
+    body_plain: str
+    body_html: Optional[str] = None
+    snippet: Optional[str] = None
+    received_at: Optional[str] = None
+
+@router.post("/test-create")
+async def create_test_email(
+    request: CreateEmailRequest,
+    db: Session = Depends(get_db)
+):
+    """
+    Create a test email directly (for development/testing purposes)
+    """
+    try:
+        # Create a test user if doesn't exist
+        user = db.query(User).filter(User.email == request.recipient_email).first()
+        if not user:
+            user = User(
+                email=request.recipient_email,
+                total_messages=1
+            )
+            db.add(user)
+            db.flush()
+        
+        # Parse received_at
+        received_at = None
+        if request.received_at:
+            try:
+                received_at = datetime.fromisoformat(request.received_at.replace('Z', '+00:00'))
+            except:
+                received_at = datetime.now()
+        else:
+            received_at = datetime.now()
+        
+        # Create email
+        email_obj = Email(
+            user_id=user.id,
+            gmail_id=request.gmail_id,
+            thread_id=request.thread_id,
+            subject=request.subject,
+            sender_email=request.sender_email,
+            sender_name=request.sender_name,
+            recipient_email=request.recipient_email,
+            body_plain=request.body_plain,
+            body_html=request.body_html,
+            snippet=request.snippet or request.body_plain[:150],
+            received_at=received_at
+        )
+        
+        db.add(email_obj)
+        db.commit()
+        db.refresh(email_obj)
+        
+        return {
+            "message": "Test email created successfully",
+            "email_id": email_obj.id,
+            "user_id": user.id
+        }
+        
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Failed to create email: {str(e)}")

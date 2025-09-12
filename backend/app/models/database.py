@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Text, DateTime, Boolean, ForeignKey, Float
+from sqlalchemy import Column, Integer, String, Text, DateTime, Boolean, ForeignKey, Float, JSON
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
@@ -86,7 +86,7 @@ class EmailSummary(Base):
     email_id = Column(Integer, ForeignKey("emails.id"), unique=True, nullable=False)
     summary_text = Column(Text)  # Bullet points summary
     tldr = Column(Text)  # One-line TL;DR
-    key_points = Column(Text)  # JSON array of key points
+    key_points = Column(JSON)  # JSON array of key points
     priority_score = Column(Float)  # Urgency score (0-1)
     priority_level = Column(String)  # LOW, MEDIUM, HIGH
     generated_by_agent = Column(String)
@@ -110,3 +110,52 @@ class EmailAction(Base):
     
     # Relationships
     email = relationship("Email", back_populates="actions")
+
+class EmailReplyDraft(Base):
+    __tablename__ = "email_reply_drafts"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    email_id = Column(Integer, ForeignKey("emails.id"), nullable=False)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    reply_content = Column(Text, nullable=False)
+    reply_type = Column(String)  # acknowledgment, meeting_response, etc.
+    generation_method = Column(String)  # ai_generated, template_based
+    safety_level = Column(String)  # safe, review_required, high_risk, blocked
+    safety_score = Column(Float)
+    safety_risks = Column(JSON)  # JSON array of risk descriptions
+    requires_approval = Column(Boolean, default=True)
+    status = Column(String, default="draft")  # draft, approved, rejected, sent, scheduled
+    context_analysis = Column(JSON)  # JSON context from analysis
+    tone_profile = Column(JSON)  # JSON tone profile used
+    estimated_send_time = Column(DateTime(timezone=True))
+    scheduled_send_time = Column(DateTime(timezone=True))
+    user_approved = Column(Boolean, default=False)
+    approved_at = Column(DateTime(timezone=True))
+    modified_by_user = Column(Boolean, default=False)
+    custom_instructions = Column(Text)
+    validation_errors = Column(JSON)  # JSON array of validation errors
+    is_superseded = Column(Boolean, default=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+    
+    # Relationships
+    email = relationship("Email")
+    user = relationship("User")
+
+class AwayMessage(Base):
+    __tablename__ = "away_messages"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    message_content = Column(Text, nullable=False)
+    start_date = Column(DateTime(timezone=True), nullable=False)
+    end_date = Column(DateTime(timezone=True), nullable=False)
+    contact_info = Column(String)
+    tone_style = Column(String, default="professional")
+    is_active = Column(Boolean, default=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    activated_at = Column(DateTime(timezone=True))
+    deactivated_at = Column(DateTime(timezone=True))
+    
+    # Relationships
+    user = relationship("User")
