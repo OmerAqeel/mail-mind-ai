@@ -1,7 +1,7 @@
 from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel
 from typing import Dict, Any
-from ...agents.classifier import EmailClassifier
+from app.agents.classifier import EmailClassifier
 import logging
 
 logger = logging.getLogger(__name__)

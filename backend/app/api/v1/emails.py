@@ -3,7 +3,9 @@ from sqlalchemy.orm import Session
 from google.oauth2.credentials import Credentials
 from googleapiclient.discovery import build
 from app.db.database import get_db
-from app.models.database import User, Email
+from app.models.database import User, Email, EmailLabel, EmailSummary
+from app.agents.classifier import EmailClassifier
+from app.agents.summarizer import EmailSummarizer
 import json
 from datetime import datetime
 from typing import List, Optional
@@ -12,10 +14,15 @@ import email
 
 router = APIRouter()
 
+# Initialize AI agents
+classifier = EmailClassifier()
+summarizer = EmailSummarizer()
+
 @router.post("/ingest")
 async def ingest_emails(
     access_token: str,
     max_results: int = Query(default=10, le=100),
+    auto_process: bool = Query(default=True, description="Automatically classify and summarize emails"),
     db: Session = Depends(get_db)
 ):
     """
@@ -95,11 +102,59 @@ async def ingest_emails(
             )
             
             db.add(email_record)
+            db.flush()  # Get the email ID
+            
+            # Auto-process with AI agents if enabled
+            processing_results = {}
+            if auto_process:
+                try:
+                    # Classification
+                    classification_data = {
+                        "subject": email_data.get('subject', ''),
+                        "body": email_data.get('body_plain', ''),
+                        "sender": email_data.get('sender_email', '')
+                    }
+                    
+                    classification_result = await classifier.classify_email(classification_data)
+                    
+                    # Store classification as label
+                    email_label = EmailLabel(
+                        email_id=email_record.id,
+                        name=classification_result.get('category', 'other'),
+                        confidence=classification_result.get('confidence', 0.0),
+                        created_by_agent='classifier'
+                    )
+                    db.add(email_label)
+                    
+                    # Summarization
+                    summarization_result = await summarizer.summarize_email(classification_data)
+                    
+                    # Store summary
+                    email_summary = EmailSummary(
+                        email_id=email_record.id,
+                        summary_text='\n'.join(summarization_result.get('bullet_points', [])),
+                        tldr=summarization_result.get('tldr', ''),
+                        key_points=str(summarization_result.get('key_actions', [])),
+                        priority_score=summarization_result.get('priority_score', 0.0),
+                        priority_level=summarization_result.get('priority_level', 'medium'),
+                        generated_by_agent='summarizer'
+                    )
+                    db.add(email_summary)
+                    
+                    processing_results = {
+                        "classification": classification_result,
+                        "summarization": summarization_result
+                    }
+                    
+                except Exception as e:
+                    processing_results = {"error": f"AI processing failed: {str(e)}"}
+            
             ingested_emails.append({
                 "gmail_id": message_id,
                 "subject": email_data.get('subject'),
                 "sender": email_data.get('sender_email'),
-                "received_at": email_record.received_at.isoformat()
+                "received_at": email_record.received_at.isoformat(),
+                "ai_processing": processing_results if auto_process else "disabled"
             })
         
         db.commit()

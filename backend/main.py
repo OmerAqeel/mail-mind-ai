@@ -70,6 +70,7 @@ async def api_v1():
             "auth": "/api/v1/auth",
             "emails": "/api/v1/emails",
             "classify": "/api/v1/classify",
+            "summarize": "/api/v1/summarize",
             "agents": "/api/v1/agents"
         }
     }
@@ -78,11 +79,13 @@ async def api_v1():
 from app.api.v1.auth import router as auth_router
 from app.api.v1.emails import router as emails_router
 from app.api.v1.classify import router as classify_router
+from app.api.v1.summarize import router as summarize_router
 # from app.api.v1.agents import router as agents_router
 
 app.include_router(auth_router, prefix="/api/v1/auth", tags=["authentication"])
 app.include_router(emails_router, prefix="/api/v1/emails", tags=["emails"])
 app.include_router(classify_router, tags=["classification"])
+app.include_router(summarize_router, tags=["summarization"])
 # app.include_router(agents_router, prefix="/api/v1/agents", tags=["agents"])
 
 # Global exception handler
