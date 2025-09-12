@@ -159,3 +159,112 @@ class AwayMessage(Base):
     
     # Relationships
     user = relationship("User")
+
+class SentEmail(Base):
+    __tablename__ = "sent_emails"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    original_email_id = Column(Integer, ForeignKey("emails.id"))  # If replying to an email
+    reply_draft_id = Column(Integer, ForeignKey("email_reply_drafts.id"))  # If sent from auto-reply
+    
+    # Email details
+    recipient_email = Column(String, nullable=False)
+    sender_email = Column(String, nullable=False)
+    subject = Column(Text, nullable=False)
+    body_plain = Column(Text)
+    body_html = Column(Text)
+    
+    # Sending details
+    provider = Column(String, nullable=False)  # gmail_api, smtp_gmail, etc.
+    message_id = Column(String, index=True)  # Provider's message ID
+    thread_id = Column(String, index=True)  # Email thread ID
+    
+    # Status tracking
+    status = Column(String, default="sent")  # sent, delivered, read, bounced, failed
+    sent_at = Column(DateTime(timezone=True), nullable=False)
+    delivered_at = Column(DateTime(timezone=True))
+    read_at = Column(DateTime(timezone=True))
+    bounced_at = Column(DateTime(timezone=True))
+    
+    # Metadata
+    is_reply = Column(Boolean, default=False)
+    is_auto_reply = Column(Boolean, default=False)
+    has_attachments = Column(Boolean, default=False)
+    body_length = Column(Integer)
+    send_attempt = Column(Integer, default=1)
+    
+    # Error tracking
+    error_message = Column(Text)
+    warnings = Column(JSON)
+    
+    # Timestamps
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+    
+    # Relationships
+    user = relationship("User")
+    original_email = relationship("Email")
+    reply_draft = relationship("EmailReplyDraft")
+
+class ScheduledEmail(Base):
+    __tablename__ = "scheduled_emails"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    reply_draft_id = Column(Integer, ForeignKey("email_reply_drafts.id"))  # If from auto-reply
+    
+    # Email content
+    recipient_email = Column(String, nullable=False)
+    sender_email = Column(String, nullable=False)
+    subject = Column(Text, nullable=False)
+    body_plain = Column(Text)
+    body_html = Column(Text)
+    email_data = Column(JSON)  # Full email data including attachments
+    
+    # Scheduling details
+    scheduled_for = Column(DateTime(timezone=True), nullable=False)
+    send_config = Column(JSON)  # Provider and credentials config
+    priority = Column(Integer, default=5)  # 1-10, 1 being highest priority
+    
+    # Status tracking
+    status = Column(String, default="scheduled")  # scheduled, sending, sent, failed, cancelled
+    attempts = Column(Integer, default=0)
+    max_attempts = Column(Integer, default=3)
+    
+    # Results
+    sent_email_id = Column(Integer, ForeignKey("sent_emails.id"))
+    error_message = Column(Text)
+    last_attempt_at = Column(DateTime(timezone=True))
+    
+    # Timestamps
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+    
+    # Relationships
+    user = relationship("User")
+    reply_draft = relationship("EmailReplyDraft")
+    sent_email = relationship("SentEmail")
+
+class EmailDeliveryEvent(Base):
+    __tablename__ = "email_delivery_events"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    sent_email_id = Column(Integer, ForeignKey("sent_emails.id"), nullable=False)
+    
+    # Event details
+    event_type = Column(String, nullable=False)  # delivered, opened, clicked, bounced, complained
+    event_data = Column(JSON)  # Provider-specific event data
+    provider_event_id = Column(String)  # Provider's event ID
+    
+    # Timing
+    occurred_at = Column(DateTime(timezone=True), nullable=False)
+    recorded_at = Column(DateTime(timezone=True), server_default=func.now())
+    
+    # Additional context
+    ip_address = Column(String)
+    user_agent = Column(Text)
+    location_data = Column(JSON)
+    
+    # Relationships
+    sent_email = relationship("SentEmail")
